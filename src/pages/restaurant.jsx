@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Lightbox from 'react-image-lightbox';
 import 'react-image-lightbox/style.css';
-import {
-  FiSearch,
-  FiFilter,
-  FiChevronDown,
+import { 
+  FiSearch, 
+  FiFilter, 
+  FiChevronDown, 
   FiChevronUp,
   FiX,
   FiCoffee,

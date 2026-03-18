@@ -1,5 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
-import { Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import Home from './pages/home';
@@ -11,49 +10,25 @@ import Login from './pages/login';
 import Register from './pages/register';
 import Dashboard from './pages/dashboard';
 import AdminRoute from './components/AdminRoute';
+import PrivateRoute from './components/PrivateRoute';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/Dashboard';
 import RoomsAdmin from './pages/admin/RoomsAdmin';
 import RestaurantAdmin from './pages/admin/RestaurantAdmin';
-import PrivateRoute from './components/PrivateRoute';
-import { FiHome, FiGrid, FiCoffee, FiShoppingCart, FiUser } from 'react-icons/fi';
+import { useLocation, Link } from 'react-router-dom'; // for Navbar
+import { FiHome, FiGrid, FiCoffee, FiShoppingCart, FiUser } from 'react-icons/fi'; // for mobile nav
 
+// Navbar component – hidden on admin pages
 function Navbar() {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
 
-  // Don't show navbar on admin pages
+  // Hide navbar on admin pages
   if (location.pathname.startsWith('/admin')) {
     return null;
   }
 
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
-
-  const getUserInitials = () => {
-    if (!user?.name) return 'U';
-    const names = user.name.split(' ');
-    if (names.length >= 2) {
-      return `${names[0][0]}${names[1][0]}`.toUpperCase();
-    }
-    return names[0][0].toUpperCase();
-  };
-
+  // Desktop & mobile nav (your existing code – keep as is)
   return (
     <nav>
       <div className="nav-container">
@@ -67,24 +42,17 @@ function Navbar() {
           {user ? (
             <>
               <Link to="/cart">Cart</Link>
-              <div className="profile-dropdown" ref={dropdownRef}>
-                <button 
-                  className="profile-button"
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                >
-                  <span className="avatar">{getUserInitials()}</span>
+              <div className="profile-dropdown">
+                <button className="profile-button">
+                  <span className="avatar">{user.name?.charAt(0).toUpperCase()}</span>
                   <span className="user-name">{user.name?.split(' ')[0]}</span>
                   <span className="dropdown-arrow">▼</span>
                 </button>
-                {dropdownOpen && (
-                  <div className="dropdown-menu">
-                    <Link to="/dashboard" onClick={() => setDropdownOpen(false)}>Dashboard</Link>
-                    {user.role === 'admin' && (
-                      <Link to="/admin" onClick={() => setDropdownOpen(false)}>Admin Panel</Link>
-                    )}
-                    <button onClick={handleLogout} className="dropdown-logout">Logout</button>
-                  </div>
-                )}
+                <div className="dropdown-menu">
+                  <Link to="/dashboard">Dashboard</Link>
+                  {user.role === 'admin' && <Link to="/admin">Admin Panel</Link>}
+                  <button onClick={logout} className="dropdown-logout">Logout</button>
+                </div>
               </div>
             </>
           ) : (
@@ -96,38 +64,18 @@ function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Bottom Navigation (only on non-admin pages) */}
-      {!location.pathname.startsWith('/admin') && (
-        <div className="mobile-bottom-nav">
-          <Link to="/" className="mobile-nav-item">
-            <FiHome />
-            <span>Home</span>
-          </Link>
-          <Link to="/rooms" className="mobile-nav-item">
-            <FiGrid />
-            <span>Rooms</span>
-          </Link>
-          <Link to="/restaurant" className="mobile-nav-item">
-            <FiCoffee />
-            <span>Restaurant</span>
-          </Link>
-          <Link to="/cart" className="mobile-nav-item">
-            <FiShoppingCart />
-            <span>Cart</span>
-          </Link>
-          {user ? (
-            <Link to="/dashboard" className="mobile-nav-item">
-              <FiUser />
-              <span>Profile</span>
-            </Link>
-          ) : (
-            <Link to="/login" className="mobile-nav-item">
-              <FiUser />
-              <span>Login</span>
-            </Link>
-          )}
-        </div>
-      )}
+      {/* Mobile Bottom Navigation */}
+      <div className="mobile-bottom-nav">
+        <Link to="/" className="mobile-nav-item"><FiHome /><span>Home</span></Link>
+        <Link to="/rooms" className="mobile-nav-item"><FiGrid /><span>Rooms</span></Link>
+        <Link to="/restaurant" className="mobile-nav-item"><FiCoffee /><span>Restaurant</span></Link>
+        <Link to="/cart" className="mobile-nav-item"><FiShoppingCart /><span>Cart</span></Link>
+        {user ? (
+          <Link to="/dashboard" className="mobile-nav-item"><FiUser /><span>Profile</span></Link>
+        ) : (
+          <Link to="/login" className="mobile-nav-item"><FiUser /><span>Login</span></Link>
+        )}
+      </div>
     </nav>
   );
 }
@@ -136,25 +84,33 @@ function App() {
   return (
     <AuthProvider>
       <CartProvider>
-        <Navbar />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/rooms" element={<Rooms />} />
-          <Route path="/rooms/:id" element={<RoomDetail />} />
-          <Route path="/restaurant" element={<Restaurant />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="rooms" element={<RoomsAdmin />} />
-            <Route path="restaurant" element={<RestaurantAdmin />} />
-          </Route>
-        </Routes>
+        <BrowserRouter>
+          <Navbar />
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Home />} />
+            <Route path="/rooms" element={<Rooms />} />
+            <Route path="/rooms/:id" element={<RoomDetail />} />
+            <Route path="/restaurant" element={<Restaurant />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+
+            {/* Protected User Routes */}
+            <Route path="/cart" element={<PrivateRoute><Cart /></PrivateRoute>} />
+            <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+
+            {/* Admin Routes – nested under AdminLayout */}
+            <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="rooms" element={<RoomsAdmin />} />
+              <Route path="restaurant" element={<RestaurantAdmin />} />
+            </Route>
+
+            {/* 404 fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
       </CartProvider>
     </AuthProvider>
   );
