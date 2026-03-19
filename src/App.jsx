@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import Home from './pages/home';
@@ -15,44 +16,77 @@ import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/Dashboard';
 import RoomsAdmin from './pages/admin/RoomsAdmin';
 import RestaurantAdmin from './pages/admin/RestaurantAdmin';
-import { useLocation, Link } from 'react-router-dom'; // for Navbar
-import { FiHome, FiGrid, FiCoffee, FiShoppingCart, FiUser } from 'react-icons/fi'; // for mobile nav
+import { FiHome, FiGrid, FiCoffee, FiShoppingCart, FiUser, FiMenu, FiX } from 'react-icons/fi';
 
-// Navbar component – hidden on admin pages
 function Navbar() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
-  // Hide navbar on admin pages
+  // Don't show navbar on admin pages
   if (location.pathname.startsWith('/admin')) {
     return null;
   }
 
-  // Desktop & mobile nav (your existing code – keep as is)
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+    setMobileMenuOpen(false);
+  };
+
+  const getUserInitials = () => {
+    if (!user?.name) return 'U';
+    const names = user.name.split(' ');
+    if (names.length >= 2) {
+      return `${names[0][0]}${names[1][0]}`.toUpperCase();
+    }
+    return names[0][0].toUpperCase();
+  };
+
   return (
     <nav>
       <div className="nav-container">
-        <Link to="/" className="logo">KINGS LUXURY</Link>
+        <Link to="/" className="logo" onClick={() => setMobileMenuOpen(false)}>KINGS LUXURY</Link>
+
         {/* Desktop Navigation */}
         <div className="nav-links desktop-nav">
           <Link to="/">Home</Link>
           <Link to="/rooms">Rooms</Link>
           <Link to="/restaurant">Restaurant</Link>
-          
           {user ? (
             <>
               <Link to="/cart">Cart</Link>
-              <div className="profile-dropdown">
-                <button className="profile-button">
-                  <span className="avatar">{user.name?.charAt(0).toUpperCase()}</span>
+              <div className="profile-dropdown" ref={dropdownRef}>
+                <button 
+                  className="profile-button"
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                >
+                  <span className="avatar">{getUserInitials()}</span>
                   <span className="user-name">{user.name?.split(' ')[0]}</span>
                   <span className="dropdown-arrow">▼</span>
                 </button>
-                <div className="dropdown-menu">
-                  <Link to="/dashboard">Dashboard</Link>
-                  {user.role === 'admin' && <Link to="/admin">Admin Panel</Link>}
-                  <button onClick={logout} className="dropdown-logout">Logout</button>
-                </div>
+                {dropdownOpen && (
+                  <div className="dropdown-menu">
+                    <Link to="/dashboard" onClick={() => setDropdownOpen(false)}>Dashboard</Link>
+                    {user.role === 'admin' && (
+                      <Link to="/admin" onClick={() => setDropdownOpen(false)}>Admin Panel</Link>
+                    )}
+                    <button onClick={handleLogout} className="dropdown-logout">Logout</button>
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -62,20 +96,36 @@ function Navbar() {
             </>
           )}
         </div>
+
+        {/* Mobile Hamburger */}
+        <button className="mobile-menu-toggle" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          {mobileMenuOpen ? <FiX /> : <FiMenu />}
+        </button>
       </div>
 
-      {/* Mobile Bottom Navigation */}
-      <div className="mobile-bottom-nav">
-        <Link to="/" className="mobile-nav-item"><FiHome /><span>Home</span></Link>
-        <Link to="/rooms" className="mobile-nav-item"><FiGrid /><span>Rooms</span></Link>
-        <Link to="/restaurant" className="mobile-nav-item"><FiCoffee /><span>Restaurant</span></Link>
-        <Link to="/cart" className="mobile-nav-item"><FiShoppingCart /><span>Cart</span></Link>
-        {user ? (
-          <Link to="/dashboard" className="mobile-nav-item"><FiUser /><span>Profile</span></Link>
-        ) : (
-          <Link to="/login" className="mobile-nav-item"><FiUser /><span>Login</span></Link>
-        )}
-      </div>
+      {/* Mobile Navigation Menu */}
+      {mobileMenuOpen && (
+        <div className="mobile-nav-menu">
+          <Link to="/" onClick={() => setMobileMenuOpen(false)}><FiHome /> Home</Link>
+          <Link to="/rooms" onClick={() => setMobileMenuOpen(false)}><FiGrid /> Rooms</Link>
+          <Link to="/restaurant" onClick={() => setMobileMenuOpen(false)}><FiCoffee /> Restaurant</Link>
+          {user ? (
+            <>
+              <Link to="/cart" onClick={() => setMobileMenuOpen(false)}><FiShoppingCart /> Cart</Link>
+              <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)}><FiUser /> Dashboard</Link>
+              {user.role === 'admin' && (
+                <Link to="/admin" onClick={() => setMobileMenuOpen(false)}>Admin</Link>
+              )}
+              <button onClick={handleLogout} className="mobile-logout"><FiUser /> Logout</button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Login</Link>
+              <Link to="/register" onClick={() => setMobileMenuOpen(false)}>Register</Link>
+            </>
+          )}
+        </div>
+      )}
     </nav>
   );
 }
@@ -84,33 +134,10 @@ function App() {
   return (
     <AuthProvider>
       <CartProvider>
-        <BrowserRouter>
-          <Navbar />
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Home />} />
-            <Route path="/rooms" element={<Rooms />} />
-            <Route path="/rooms/:id" element={<RoomDetail />} />
-            <Route path="/restaurant" element={<Restaurant />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-
-            {/* Protected User Routes */}
-            <Route path="/cart" element={<PrivateRoute><Cart /></PrivateRoute>} />
-            <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-
-            {/* Admin Routes – nested under AdminLayout */}
-            <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
-              <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="rooms" element={<RoomsAdmin />} />
-              <Route path="restaurant" element={<RestaurantAdmin />} />
-            </Route>
-
-            {/* 404 fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
+        <Navbar />
+        <Routes>
+          {/* ... your routes ... */}
+        </Routes>
       </CartProvider>
     </AuthProvider>
   );
